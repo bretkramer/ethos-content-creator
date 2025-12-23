@@ -40,6 +40,13 @@ function pickOptionIdFromCard(card, { correct }) {
   return chosen?.id || null;
 }
 
+function isQuestionCard(card) {
+  const json = parseCardJson(card?.json);
+  const blocks = json?.contentBlocks || [];
+  const hasQuestionBlock = blocks.some((b) => b?.type === 'multipleChoice' || b?.type === 'trueFalse');
+  return Boolean(hasQuestionBlock || json?.templateType === 'multipleChoice');
+}
+
 export class EthosSimulationService {
   constructor({ credentials }) {
     this.client = new EthosClient(credentials);
@@ -543,9 +550,31 @@ export class EthosSimulationService {
     return { attempted: unique.length };
   }
 
+  async getCardEnrollment({ cardEnrollmentId }) {
+    const id = this._normalizeUuidFromAnything(cardEnrollmentId);
+    if (!id) return null;
+    const e = await this.client.get(`/v1/card_enrollments/${id}`);
+    return this._normalizeCardEnrollment(e);
+  }
+
   async getCardEnrollments({ learningItemEnrollmentId }) {
     const data = await this.client.get(`/v1/learning_item_enrollments/${learningItemEnrollmentId}/card_enrollments`);
-    return hydraMembers(data).map((e) => this._normalizeCardEnrollment(e));
+    const refs = hydraMembers(data).map((e) => this._normalizeCardEnrollment(e));
+
+    // In some tenants, this list is just refs (@id) without cardId/answer fields.
+    // Hydrate anything missing cardId so we can answer/grade quizzes reliably.
+    const hydrated = await this._mapWithConcurrency(refs, 10, async (ce) => {
+      if (ce?.id && !ce?.cardId) {
+        try {
+          return await this.getCardEnrollment({ cardEnrollmentId: ce.id });
+        } catch {
+          return ce;
+        }
+      }
+      return ce;
+    });
+
+    return hydrated.filter(Boolean).map((e) => this._normalizeCardEnrollment(e));
   }
 
   async getCard({ cardId }) {
@@ -553,34 +582,67 @@ export class EthosSimulationService {
     return await this.client.get(`/v1/cards/${id}`);
   }
 
-  async answerQuizByTargetPercent({ learningItemEnrollmentId, userId, targetPercentCorrect }) {
+  async answerQuizByTargetPercent({ learningItemEnrollmentId, userId, targetPercentCorrect, debug = false }) {
     const enrollmentId = learningItemEnrollmentId;
     if (!enrollmentId) {
       return { ok: false, error: 'No learning item enrollment found', learningItemEnrollmentId, userId };
     }
-    const cardEnrollments = await this.getCardEnrollments({ learningItemEnrollmentId: enrollmentId });
-    const questionEnrollments = cardEnrollments.filter((ce) => ce?.id && ce?.cardId);
+    // Card enrollments may be created asynchronously; do a short wait/poll to avoid false empties.
+    let cardEnrollments = [];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      cardEnrollments = await this.getCardEnrollments({ learningItemEnrollmentId: enrollmentId });
+      if (cardEnrollments.length) break;
+      await sleep(500);
+    }
 
-    const total = questionEnrollments.length || 0;
+    // IMPORTANT:
+    // Quizzes include non-question cards (title/body/etc). Those can have card enrollments but won't score.
+    // We must answer only question cards (multipleChoice/trueFalse).
+    const eligible = cardEnrollments.filter((ce) => ce?.id && ce?.cardId);
+    const questionEntries = [];
+    await this._mapWithConcurrency(eligible, 10, async (ce) => {
+      try {
+        const card = await this.getCard({ cardId: ce.cardId });
+        if (!isQuestionCard(card)) return null;
+        questionEntries.push({ ce, card });
+      } catch {
+        // ignore
+      }
+      return null;
+    });
+
+    const total = questionEntries.length || 0;
     if (!total) {
-      return { ok: false, error: 'No card enrollments found', learningItemEnrollmentId: enrollmentId };
+      const nonQuestionCount = eligible.length;
+      return {
+        ok: false,
+        error: 'No question card enrollments found (only non-question cards present)',
+        learningItemEnrollmentId: enrollmentId,
+        meta: { cardEnrollments: cardEnrollments.length, eligible: eligible.length, questionCards: 0, nonQuestionCount },
+      };
     }
 
     const desiredCorrect = clamp(Math.round((targetPercentCorrect / 100) * total), 0, total);
+    const stats = { totalQuestions: total, desiredCorrect, answered: 0, correctTargeted: 0, optionNotFound: 0 };
+    const debugSamples = [];
 
     // Answer first N as correct, rest incorrect (simple but deterministic)
-    for (let i = 0; i < questionEnrollments.length; i++) {
-      const ce = questionEnrollments[i];
-      const card = await this.getCard({ cardId: ce.cardId });
+    for (let i = 0; i < questionEntries.length; i++) {
+      const { ce, card } = questionEntries[i];
       const chooseCorrect = i < desiredCorrect;
       const optionId = pickOptionIdFromCard(card, { correct: chooseCorrect });
-      if (!optionId) continue;
+      if (!optionId) {
+        stats.optionNotFound++;
+        continue;
+      }
 
       const now = new Date().toISOString();
       await this.client.patch(
         `/v1/card_enrollments/${ce.id}`,
         {
           answer: [optionId],
+          // Confidence appears to be nullable; provide a reasonable value (optional).
+          confidence: 100,
           startedAt: ce.startedAt || now,
           completedAt: now,
           elapsedSec: 10 + Math.floor(Math.random() * 50),
@@ -588,13 +650,55 @@ export class EthosSimulationService {
         },
         { headers: { 'Content-Type': 'application/merge-patch+json' } },
       );
+      stats.answered++;
+      if (chooseCorrect) stats.correctTargeted++;
+
+      // Some tenants only grade after an explicit completion/submit action.
+      // Best-effort: if the endpoint exists, call it; otherwise ignore errors.
+      try {
+        await this.client.post(`/v1/card_enrollments/${ce.id}/complete`, {});
+      } catch {
+        // ignore
+      }
+
+      if (debug && debugSamples.length < 3) {
+        try {
+          const after = await this.getCardEnrollment({ cardEnrollmentId: ce.id });
+          debugSamples.push({
+            cardEnrollmentId: ce.id,
+            cardId: ce.cardId,
+            type: after?.type || null,
+            answer: after?.answer ?? null,
+            score: after?.score ?? null,
+            percentCorrect: after?.percentCorrect ?? null,
+            gradedAt: after?.gradedAt ?? null,
+          });
+        } catch {
+          // ignore
+        }
+      }
     }
 
     // Mark complete
     await this.client.post(`/v1/learning_item_enrollments/${enrollmentId}/complete`, {});
-    const finalEnrollment = await this.client.get(`/v1/learning_item_enrollments/${enrollmentId}`);
 
-    return { ok: true, learningItemEnrollmentId: enrollmentId, finalEnrollment };
+    // Grading/score can lag behind completion; poll briefly for non-zero/non-null score fields.
+    let finalEnrollment = await this.getLearningItemEnrollment({ learningItemEnrollmentId: enrollmentId });
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const score = finalEnrollment?.score ?? null;
+      const pct = finalEnrollment?.percentCorrect ?? null;
+      if ((typeof score === 'number' && score > 0) || (typeof pct === 'number' && pct > 0)) break;
+      await sleep(500);
+      finalEnrollment = await this.getLearningItemEnrollment({ learningItemEnrollmentId: enrollmentId });
+    }
+
+    return {
+      ok: true,
+      learningItemEnrollmentId: enrollmentId,
+      finalEnrollment,
+      meta: stats,
+      debugSamples: debug ? debugSamples : undefined,
+    };
   }
 
   async completeLesson({ learningItemEnrollmentId, userId }) {

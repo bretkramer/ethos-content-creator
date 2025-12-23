@@ -340,6 +340,7 @@ app.post('/api/ethos/simulate', requireAuth, async (req, res, next) => {
           learningItemEnrollmentId: enrollmentId,
           userId,
           targetPercentCorrect: pct,
+          debug: Boolean(body.debug),
         });
         if (!r.ok) enrollmentMisses.push({ type: 'quiz', learningItemId: quizIds[i] });
         completedQuizzes.push(r);
