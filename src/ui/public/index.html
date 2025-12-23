@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ethos Content Creator (Demo)</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1>Ethos Content Creator (Demo)</h1>
+        <p class="muted">
+          Generate lessons/quizzes from a topic, create them in Ethos, and simulate learner outcomes.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>1) Authenticate</h2>
+        <div class="grid">
+          <label>
+            Email
+            <input id="email" type="email" placeholder="you@company.com" />
+          </label>
+          <button id="loadOrgs" class="primary">Load organizations</button>
+        </div>
+
+        <div class="grid">
+          <label>
+            Organization
+            <select id="orgSelect"></select>
+          </label>
+          <label>
+            Password
+            <input id="password" type="password" />
+          </label>
+          <button id="login" class="primary">Login</button>
+          <button id="logout">Logout</button>
+        </div>
+        <pre id="authStatus" class="output"></pre>
+      </section>
+
+      <section class="card">
+        <h2>2) Generate draft content</h2>
+        <div class="grid">
+          <label>
+            Topic
+            <input id="topic" type="text" placeholder="e.g. OSHA fall protection" />
+          </label>
+          <label>
+            Lessons
+            <input id="lessonsCount" type="number" min="0" value="1" />
+          </label>
+          <label>
+            Quizzes
+            <input id="quizzesCount" type="number" min="0" value="1" />
+          </label>
+          <label>
+            Users (draft)
+            <input id="usersCount" type="number" min="0" value="10" />
+          </label>
+          <label>
+            User email base (optional)
+            <input id="userEmailBase" type="text" placeholder="e.g. bkramer" />
+          </label>
+          <label>
+            User email domain (optional)
+            <input id="userEmailDomain" type="text" placeholder="e.g. ethossystems.com" />
+          </label>
+          <label>
+            User email start index
+            <input id="userEmailStartIndex" type="number" min="1" value="1" />
+          </label>
+          <button id="generate" class="primary">Generate draft</button>
+        </div>
+        <pre id="draftOutput" class="output"></pre>
+      </section>
+
+      <section class="card">
+        <h2>3) Publish to Ethos (optional)</h2>
+        <div class="grid">
+          <button id="loadCourses" class="primary">Load courses</button>
+          <label>
+            Course (pick from Ethos)
+            <select id="courseSelect"></select>
+          </label>
+          <label>
+            Course ID (optional)
+            <input id="courseId" type="text" placeholder="(optional) course UUID" />
+          </label>
+          <label>
+            Learning item state
+            <select id="learningItemState">
+              <option value="draft" selected>draft</option>
+              <option value="published">published</option>
+            </select>
+          </label>
+          <label>
+            Auto-publish course after assignment
+            <select id="autoPublishCourse">
+              <option value="true" selected>true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Auto-publish lessons/quizzes after cards created
+            <select id="autoPublishLearningItems">
+              <option value="true" selected>true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Reuse existing users (by email)
+            <select id="reuseExistingUsers">
+              <option value="true" selected>true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Enable EthosGenerated learning group automation
+            <select id="enableEthosGeneratedGroup">
+              <option value="true" selected>true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Attribute name
+            <input id="ethosGeneratedAttributeName" type="text" placeholder="EthosGenerated" value="EthosGenerated" />
+          </label>
+          <label>
+            Learning group name
+            <input id="ethosGeneratedGroupName" type="text" placeholder="Ethos Generated Learners" value="Ethos Generated Learners" />
+          </label>
+          <button id="publish" class="primary">Publish draft to Ethos</button>
+        </div>
+        <pre id="publishOutput" class="output"></pre>
+      </section>
+
+      <section class="card">
+        <h2>4) Simulate outcomes</h2>
+        <div class="grid">
+          <p class="muted" style="grid-column: 1 / -1; margin: 0;">
+            Ethos simulation assumes enrollment is managed via <b>EthosGenerated</b> attribute + a rule-based learning group (set during publish).
+          </p>
+          <label>
+            Lesson completion rate (0..1)
+            <input id="lessonCompletionRate" type="number" step="0.01" min="0" max="1" value="0.8" />
+          </label>
+          <label>
+            Quiz participation rate (0..1)
+            <input id="quizParticipationRate" type="number" step="0.01" min="0" max="1" value="0.7" />
+          </label>
+          <label>
+            Quiz score mean (0..1)
+            <input id="quizScoreMean" type="number" step="0.01" min="0" max="1" value="0.78" />
+          </label>
+          <label>
+            Quiz score std (0..1)
+            <input id="quizScoreStd" type="number" step="0.01" min="0" max="1" value="0.12" />
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input id="includeDebug" type="checkbox" />
+            Include debug diagnostics (slower)
+          </label>
+          <button id="simulate" class="primary">Simulate (local)</button>
+          <button id="simulateEthos" class="primary">Simulate in Ethos (complete)</button>
+        </div>
+        <pre id="simulateOutput" class="output"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
+
