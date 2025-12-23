@@ -7,6 +7,16 @@ Demo app to:
 - Create lessons/quizzes/users in Ethos (optional)
 - Simulate learners completing lessons and taking quizzes (local simulation + optional Ethos enrollment flow when configured)
 
+## ⚠️ Warning: data is hard to remove in Ethos
+
+Be careful running this against any long-lived/shared tenant.
+
+- Ethos is **notoriously difficult to “delete” data** once it’s created.
+- In practice, there are **no true deletes** for much of this content — only **deactivate**.
+- If you generate **large quantities** of demo lessons/quizzes/users, the **residual impact will remain** and can clutter the tenant for a long time.
+
+Use small numbers, use clearly identifiable naming/email patterns, and preferably use a disposable/demo tenant.
+
 ## Setup
 
 1. Copy `config.env.example` to `config.env` and fill values.
