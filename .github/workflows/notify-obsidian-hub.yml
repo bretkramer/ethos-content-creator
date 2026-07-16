@@ -1,0 +1,27 @@
+name: Notify Obsidian Hub (Ethos)
+
+# This is the ONLY workflow file needed in each Ethos project repo.
+# All logic lives in the ethos-obsidian-hub repo — this just sends a ping.
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch to ethos-obsidian-hub
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/bretkramer/ethos-obsidian-hub/dispatches \
+            -d '{
+              "event_type": "living-state-sync",
+              "client_payload": {
+                "repo": "${{ github.repository }}",
+                "force": "false"
+              }
+            }'
