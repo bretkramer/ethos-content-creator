@@ -14,7 +14,7 @@ npm run dev                        # nodemon src/server.js
 
 The app serves at `http://localhost:5179`.
 
-- `npm start` runs the same entry point (`src/server.js`) without file-watching, for a non-dev run.
+- `npm start` runs the same entry point (`src/server.js`) without file-watching.
 - There is no Dockerfile, no deploy script, and no staging or production URL anywhere in the repo.
 - The only GitHub Action present (`.github/workflows/notify-obsidian-hub.yml`) notifies an external "Obsidian Hub" notes system on repo activity. It is documentation-pipeline tooling, not a deployment mechanism, and has no bearing on how or where the app itself runs.
 
@@ -34,8 +34,8 @@ This is a single-page app backed by an Express server — no client-side router,
 - **Auth**: `ethosAuthService.js` authenticates against Ethos via Amazon Cognito (`amazon-cognito-identity-js`), deliberately mirroring the flow used in the separate `ethos-STRMS-quiz-result-extraction` project rather than introducing a new pattern. `express-session` holds the resulting session state server-side.
 - **Ethos API access**: `ethosClient.js` is a shared axios-based HTTP client for Ethos REST calls. `ethosContentService.js` builds on it to create lessons, quizzes, and users, optionally attaching content to a course ID and enrolling users against a learning plan ID.
 - **Content generation**: `contentGenerator.js` takes a topic string, pulls source material from Wikipedia, and produces a draft with a floor of 5 lesson cards and 5 quiz questions. This is intentionally demo-quality — structured enough to look real, not tuned for pedagogical accuracy.
-- **Simulation**: `ethosSimulationService.js` drives simulated learner completion of lessons and quizzes, either fully local or, when a learning plan is configured, through real Ethos enrollment/progress calls. It special-cases answer-only quiz question cards (cards with no separate content step), since the original card-handling logic assumed a uniform card shape.
-- **Validation**: `zod` is a dependency, most plausibly used at config/env parsing and request boundaries, though its exact usage isn't broken out into a distinct schema module.
+- **Simulation**: `ethosSimulationService.js` drives simulated learner completion of lessons and quizzes, either fully local or, when a learning plan is configured, through real Ethos enrollment/progress calls. It special-cases answer-only quiz question cards (cards with no separate content step), since a uniform card shape doesn't hold across all content types.
+- **Validation**: `zod` is a dependency, most plausibly used at config/env parsing and request boundaries, though its usage isn't broken out into a distinct schema module.
 - **Frontend**: plain HTML/CSS/JS under `src/ui/public`, served as static files by Express. No build step, no framework — appropriate for a throwaway demo utility, not a maintained product surface.
 - **Data model**: no database. State is transient in-memory/session state on the Node process, or created directly as Ethos records via its API — the Ethos tenant is the only durable system of record.
 
@@ -48,10 +48,10 @@ This is a single-page app backed by an Express server — no client-side router,
 - Answer-only quiz question cards (no separate content step) are enrolled and handled correctly during simulation rather than being mishandled as ordinary content cards.
 
 ## Recent Activity
-- **No application code has changed in the recent window.** Every commit over the past several weeks touches documentation or process tooling — `src/` is untouched.
-- **Living-state documentation regenerates on a recurring, roughly weekly cadence**, against a codebase that itself isn't changing — the doc pipeline is the active thing, not the product.
+- **No application code has changed in the recent window.** Every commit over the past several weeks touches documentation or process tooling — nothing under `src/` has moved.
+- **Living-state documentation regenerates on a recurring, roughly weekly cadence**, against a codebase that itself isn't changing — the doc pipeline is currently the only active thing in this repo.
 - **An Obsidian Hub notify workflow was wired in** ahead of this documentation cadence, connecting the repo to an external notes/pipeline system on repo activity, without touching runtime behavior.
-- All substantive application work — the server, all five service modules, and the UI — landed together in a single initial build, followed by one targeted bug fix (correcting enrollment handling for answer-only quiz cards during simulation) and a README addition warning about Ethos's lack of true deletes. That work sits well outside the recent window; there has been a long quiet stretch between it and the current documentation-only activity.
+- All substantive application work — the server, all five service modules, and the UI — landed together in a single initial build, followed by one targeted bug fix (correcting enrollment handling for answer-only quiz cards during simulation) and a README addition warning about Ethos's lack of true deletes. That work sits well outside the recent window; there's a long quiet stretch between it and the current documentation-only activity.
 
 Momentum right now is entirely in documentation/process tooling. The application itself has been functionally frozen since its initial build plus one fix — there is no feature work currently in flight.
 
@@ -93,4 +93,4 @@ Momentum right now is entirely in documentation/process tooling. The application
 - `README.md` — setup instructions and the critical warning about irreversible Ethos data creation.
 
 ---
-_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-08-06_
+_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-08-10_
