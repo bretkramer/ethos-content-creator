@@ -1,97 +1,97 @@
 # ethos-content-creator — Living State
 
 ## What This Is
-A demo utility that turns an arbitrary topic into a draft lesson-and-quiz set (Wikipedia-sourced by default) and, optionally, writes that content — plus demo learner accounts — directly into a live Ethos LMS tenant. It exists so internal teams (sales engineering, demos, integration testing) can populate an Ethos tenant with realistic-looking course content and then simulate learners progressing through it, without hand-authoring content or manually driving the Ethos UI for every demo or test run.
+A demo tool that converts a plain-text topic into a draft course — lesson cards plus quiz questions, sourced from Wikipedia by default — and, on request, writes that draft directly into a live Ethos LMS tenant as real lessons, quizzes, and users. It exists so people running sales demos, integration tests, or tenant walkthroughs can stand up realistic-looking course content in Ethos in minutes instead of hand-authoring it, and can then simulate learners moving through that content to show enrollment and completion flows without needing real users.
 
 ## How to Run & Access
-Local development only. Nothing in the repo defines a hosted environment, staging tier, or production endpoint.
+This is a local-only developer tool. Nothing in the repo defines a hosted, staged, or production environment.
 
 ```bash
-cp config.env.example config.env   # fill in Ethos/Cognito credentials and tenant info
+cp config.env.example config.env   # Ethos/Cognito credentials + tenant details
 npm install
-npm run dev                        # nodemon src/server.js
+npm run dev                        # nodemon src/server.js, live-reload
 ```
 
-The app serves at `http://localhost:5179`.
+The app is served at `http://localhost:5179`.
 
-- `npm start` runs the same entry point (`src/server.js`) without file-watching, for a non-restarting run.
-- There is no Dockerfile, no deploy script, and no CI job that builds or ships the app.
-- The one GitHub Action present (`.github/workflows/notify-obsidian-hub.yml`) notifies an external "Obsidian Hub" notes system on repo activity. It is documentation-pipeline tooling, not a deployment mechanism, and has no bearing on how or where the app runs.
-- **No deployment target exists.** This is a run-it-yourself demo tool against whatever Ethos tenant you configure.
+- `npm start` runs the same `src/server.js` entry point without nodemon's file-watching, for a plain foreground run.
+- There is no Dockerfile, no deploy script, and no CI workflow that builds, tests, or ships the app.
+- The only GitHub Action (`.github/workflows/notify-obsidian-hub.yml`) pings an external "Obsidian Hub" notes/automation system on repo activity. It's documentation tooling, unrelated to deployment.
+- **No production or staging environment exists.** Every run is against whatever Ethos tenant the operator points `config.env` at — the README explicitly warns to use a disposable/demo tenant, since Ethos has no real delete, only deactivate.
 
 ## Site Map / Content Structure
-Single-page app backed by an Express server — no client-side router, no separate pages directory.
+A single-page workflow served by Express, with no client router and no multi-page navigation.
 
-- `/` — main UI (`src/ui/public/index.html`), one continuous workflow screen covering:
-  - Ethos authentication (tenant/credential entry, session establishment)
-  - Topic input and draft generation (lesson cards + quiz questions from Wikipedia)
-  - Review/edit of the generated draft before anything is written to Ethos
-  - Push-to-Ethos controls: create lessons, quizzes, users; attach content to a course ID; enroll users against a learning plan ID
-  - Simulation controls: run learners through lessons/quizzes, either purely locally or via real Ethos enrollment calls
-- API routes are declared and handled directly in `src/server.js`. There is no `routes/` directory or controller layer — the server delegates straight to service modules.
+- `/` (`src/ui/public/index.html`) — the entire app lives on one screen, moving through:
+  - **Authenticate** — enter Ethos tenant/credentials, establish a session
+  - **Generate** — enter a topic, produce a draft (min. 5 lesson cards, min. 5 quiz questions) from Wikipedia
+  - **Review/edit** — inspect and adjust the draft before anything touches Ethos
+  - **Create in Ethos** — push lessons, quizzes, and users into the tenant; attach content to an optional course ID; enroll users against an optional learning plan ID
+  - **Simulate** — run learners through the lessons/quizzes, either as a purely local simulation or via real Ethos enrollment/progress calls
+- API endpoints are defined and handled inline in `src/server.js`; there's no `routes/` directory or controller layer — the server calls straight into the service modules below.
 
 ## Current Architecture
-- **Runtime**: Node.js, Express 5, ES modules (`"type": "module"`).
-- **Auth**: `ethosAuthService.js` authenticates against Ethos via Amazon Cognito (`amazon-cognito-identity-js`), deliberately mirroring the flow used in the separate `ethos-STRMS-quiz-result-extraction` project rather than inventing a new one. `express-session` holds the resulting session state server-side, so there's no client-held token to manage.
-- **Ethos API access**: `ethosClient.js` is a shared axios-based HTTP client for Ethos REST calls. `ethosContentService.js` builds on it to create lessons, quizzes, and users, optionally attaching content to a course ID and enrolling users against a learning plan ID.
-- **Content generation**: `contentGenerator.js` takes a topic string, pulls source material from Wikipedia, and produces a draft with a floor of 5 lesson cards and 5 quiz questions. This is explicitly demo-quality — structured enough to look like a real course, not tuned for pedagogical accuracy or source diversity.
-- **Simulation**: `ethosSimulationService.js` drives simulated learner completion of lessons and quizzes, either fully local or, when a learning plan is configured, through real Ethos enrollment/progress calls. It special-cases answer-only quiz question cards (cards with no separate content step) because a single uniform card shape doesn't hold across all Ethos content types.
-- **Validation**: `zod` is a dependency, most plausibly used at config/env parsing and request boundaries, but there's no dedicated schema module — its usage is inline rather than centralized.
-- **Frontend**: plain HTML/CSS/JS under `src/ui/public`, served as static files by Express. No build step, no framework. Appropriate for a throwaway demo tool, not built for long-term UI growth.
-- **Data model**: no database. State is transient in-process/session state on the Node server, or created directly as Ethos records via its API — the Ethos tenant is the only durable system of record this tool has.
+- **Runtime**: Node.js + Express 5, ES modules throughout (`"type": "module"`).
+- **Auth**: `ethosAuthService.js` authenticates against Ethos through Amazon Cognito (`amazon-cognito-identity-js`), intentionally reusing the same flow as the separate `ethos-STRMS-quiz-result-extraction` project rather than a shared package — the auth logic is duplicated by design/description, not centralized. `express-session` keeps session state server-side, so the client never holds a token directly.
+- **Ethos API access**: `ethosClient.js` is a shared axios wrapper for Ethos REST calls. `ethosContentService.js` builds on it to create lessons, quizzes, and users, with optional course attachment and learning-plan enrollment.
+- **Content generation**: `contentGenerator.js` takes a topic, pulls Wikipedia source text, and shapes it into a draft with hard floors of 5 lesson cards and 5 quiz questions. This is explicitly demo-grade content — structured to look like a course, not curated or fact-checked.
+- **Simulation**: `ethosSimulationService.js` drives simulated learner progress through the generated content, either entirely in-memory or, when a learning plan is configured, through real Ethos enrollment/progress calls. It special-cases "answer-only" quiz question cards (cards with no separate content step) because a single uniform card model doesn't fit every Ethos content shape.
+- **Validation**: `zod` is a dependency, most likely used for config/env or request-boundary validation, but there's no dedicated schema file — its use appears inline rather than centralized in a schema layer.
+- **Frontend**: static HTML/CSS/JS under `src/ui/public`, served directly by Express with no build step, bundler, or framework — proportionate to a throwaway demo tool, not built to scale as a UI.
+- **Data model**: there is none locally. The Node process holds transient in-memory/session state only; the only durable system of record is whatever gets written into the Ethos tenant via its API.
 
 ## What Works Today
-- Users authenticate against an Ethos tenant using the same Cognito-based flow as the sibling quiz-extraction project.
-- Users generate a draft lesson-and-quiz set from any topic, sourced from Wikipedia, with a guaranteed minimum of 5 lesson cards and 5 quiz questions.
-- Generated drafts can be pushed into Ethos as real lessons and quizzes, optionally attached to a specified course ID.
-- Demo users can be created in Ethos and, given a learning plan ID, enrolled so learning item enrollments exist for simulation to act on.
-- Learners can be simulated completing lessons and answering quiz questions, either fully locally or by driving real Ethos enrollment/progress calls.
-- Answer-only quiz question cards (no separate content step) are enrolled and progressed correctly during simulation rather than being mishandled as ordinary content cards.
+- Users authenticate to an Ethos tenant using the Cognito flow shared conceptually with the quiz-extraction project.
+- Users generate a draft lesson-and-quiz set from any topic, sourced from Wikipedia, guaranteed at least 5 lesson cards and 5 quiz questions.
+- Drafts can be created in Ethos as real lessons and quizzes, optionally attached to a specified course ID.
+- Demo user accounts can be created in Ethos and, given a learning plan ID, enrolled so learning item enrollments exist for simulation to operate on.
+- Simulated learners can complete lessons and answer quiz questions, either purely locally or through real Ethos enrollment/progress calls.
+- Answer-only quiz question cards (no separate content step) are enrolled and progressed correctly during simulation, rather than being treated as standard content cards.
 
 ## Recent Activity
-- **No application code has changed in the recent window.** Every commit over roughly the past month is a documentation regeneration (`docs: regenerate living state`) — nothing under `src/` has moved.
-- **Living-state documentation regenerates on a recurring, roughly weekly cadence** against a codebase that itself is not changing — this doc pipeline is currently the only active thing happening in the repo.
-- **An Obsidian Hub notify workflow was wired in** shortly before this documentation cadence began, connecting the repo to an external notes/automation system on repo activity, without touching runtime behavior.
-- All substantive application work — the server, all five service modules, and the UI — landed in a single initial build, followed by one targeted bug fix (correcting enrollment handling for answer-only quiz cards during simulation) and a README addition warning about Ethos's lack of true deletes. That work predates the current documentation-only stretch by a wide margin.
+- **No application code has moved in roughly the past month.** Every recent commit is a `docs: regenerate living state` cycle — nothing under `src/` has changed.
+- The living-state document is regenerating on a **recurring, roughly weekly cadence**, against a codebase that is otherwise static — this documentation loop is currently the only visibly active process in the repository.
+- Just before this documentation cadence started, an **Obsidian Hub notify workflow** was added, wiring the repo into an external notes/automation system on repo activity — a process change, not a runtime one.
+- The last substantive app work was a single initial build (server, all five services, UI) followed by one targeted fix — correcting enrollment handling for answer-only quiz question cards during simulation — plus a README addition warning about Ethos's lack of real deletes. That work sits well before the current documentation-only stretch.
 
-Momentum right now is entirely in documentation/process tooling. The application itself has been functionally frozen since its initial build plus one fix; there is no feature work currently in flight.
+Momentum is currently 100% in documentation/process tooling. The application itself has been functionally frozen since its initial build and one follow-up fix; there's no feature work in flight.
 
 ## Known Gaps & Limitations
-- No automated tests exist anywhere; correctness is established by manual, live runs against a real Ethos tenant.
-- No deployment path exists: no Dockerfile, no hosting config, no environment-specific settings beyond `config.env.example` — this is a local-only tool today.
-- No persistence layer of its own: if the Node process restarts mid-workflow, in-progress session/generation state is lost, while anything already created in Ethos persists indefinitely (per the README's own warning).
-- Data cleanup against Ethos is effectively impossible — only deactivation exists, not true deletion — so any misuse against a shared tenant leaves permanent residue.
-- Content generation is explicitly demo-quality: Wikipedia-sourced content is uncurated and unverified, and the 5-item minimums are arbitrary floors rather than tuned defaults.
-- All HTTP routing and request handling lives in one `src/server.js` file with no router/controller separation as complexity grows.
-- The frontend has no build tooling, no tests, and no component structure — a flat static bundle that gets harder to extend as UI needs grow.
-- Unclear whether this project is actively maintained as an app or has settled into a "done, documented" state — there's been no substantive code change in a long time relative to the ongoing doc-regeneration cadence.
+- No automated tests anywhere — correctness is verified only by manually running the full flow against a live Ethos tenant.
+- No deployment path exists: no Dockerfile, no hosting config, nothing beyond `config.env.example` — strictly a local tool today.
+- No persistence layer: restarting the Node process mid-workflow loses in-progress session/draft state, while anything already pushed to Ethos persists indefinitely regardless.
+- Cleanup against Ethos is effectively one-way — deactivate only, no true delete — so any misuse against a shared tenant leaves permanent residue, as the README warns.
+- Content generation is uncurated and unverified: Wikipedia text is used as-is, and the 5-item minimums are arbitrary floors, not tuned instructional defaults.
+- All routing and request handling lives in a single `src/server.js` with no router/controller separation, which will get harder to extend as endpoints grow.
+- The frontend has no build tooling, tests, or component structure — a flat static bundle.
+- It's unclear whether this project is actively maintained as software or has settled into a "done and documented" steady state — there's a long gap between the last code change and the ongoing doc-regeneration cadence.
 
 ## Next Meaningful Capabilities
-- **Configurable content sources beyond Wikipedia** would let users generate more relevant, domain-specific demo content instead of relying on general-purpose encyclopedia text.
-- **A dry-run / preview-only mode with zero Ethos writes** would let users experiment with content generation with no risk of tenant pollution.
-- **Bulk cleanup tooling** (deactivation sweeps by naming pattern or tag) would directly address the README's stated pain point of irreversible tenant clutter.
-- **Automated tests around the Ethos client, content generator, and simulation service** would de-risk changes to the create/simulate flow, which today relies entirely on live-tenant verification.
-- **A shared, hosted demo environment** would remove the current requirement that every user run this locally with their own Ethos/Cognito credentials.
-- **A structured audit log of what a given run created in Ethos** would make it possible to account for, or later reverse, a session's tenant impact.
+- **Configurable content sources beyond Wikipedia** would let generated demo content match a specific domain instead of general encyclopedia text.
+- **A true dry-run mode with zero Ethos writes** would let users iterate on generation with no risk of polluting a shared tenant.
+- **Bulk cleanup/deactivation tooling** (by naming pattern or tag) would directly address the README's core warning about irreversible tenant clutter.
+- **Automated tests around the Ethos client, content generator, and simulation service** would de-risk changes to the create/simulate path, which today is verified only against a live tenant by hand.
+- **A shared hosted demo environment** would remove the current requirement that every user configure their own Ethos/Cognito credentials locally.
+- **A per-run audit log of everything created in Ethos** would make it possible to account for — or later reverse — a session's impact on a tenant.
 
 ## Open Technical Questions
-- Should local simulation remain the primary path, with Ethos-backed simulation as a secondary best-effort option, or is full parity between the two the actual goal?
-- Is Wikipedia meant to stay the sole content source, or does the README's "by default" phrasing signal planned support for other sources that hasn't landed yet?
-- What is the intended relationship to `ethos-STRMS-quiz-result-extraction`? Auth logic is duplicated by description ("same flow as…") rather than shared via a package — unclear whether consolidation is planned.
-- No dev/demo/prod distinction exists in config — is this tool meant to ever run anywhere other than a developer's laptop against a disposable tenant?
-- Is the sustained absence of app-level commits a sign the project is intentionally feature-complete for its demo purpose, or simply dormant?
+- Should local-only simulation remain the primary path with Ethos-backed simulation as a best-effort secondary, or is full parity between the two actually the goal?
+- Is Wikipedia meant to stay the only content source, or does "by default" in the README signal planned support for other sources that hasn't materialized?
+- What's the intended long-term relationship to `ethos-STRMS-quiz-result-extraction`? Auth is duplicated by description rather than shared as a package — is consolidation planned, or is duplication acceptable here?
+- There's no dev/demo/prod config distinction — is this tool meant only ever to run on a developer's machine against a disposable tenant, or is a shared environment eventually in scope?
+- Is the sustained lack of app-level commits intentional (feature-complete for its demo purpose) or simply dormancy? Nothing in the repo answers this directly.
 
 ## Key Files & Entry Points
-- `src/server.js` — Express app entry point; defines all HTTP routes and wires together the services.
-- `src/services/ethosAuthService.js` — Cognito-based authentication against the Ethos API.
-- `src/services/ethosClient.js` — shared HTTP client for Ethos REST API calls.
-- `src/services/contentGenerator.js` — generates draft lesson cards and quiz questions from a topic (Wikipedia by default).
+- `src/server.js` — Express entry point; defines all HTTP routes and wires the service modules together.
+- `src/services/ethosAuthService.js` — Cognito-based authentication against Ethos.
+- `src/services/ethosClient.js` — shared HTTP client for Ethos REST calls.
+- `src/services/contentGenerator.js` — generates draft lesson cards and quiz questions from a topic.
 - `src/services/ethosContentService.js` — creates lessons, quizzes, and users in Ethos, with course/learning-plan attachment.
-- `src/services/ethosSimulationService.js` — simulates learner progression through lessons and quizzes, locally or via Ethos enrollment.
-- `src/ui/public/index.html` — main UI shell for the generate/create/simulate workflow.
+- `src/services/ethosSimulationService.js` — simulates learner progression through lessons/quizzes, locally or via Ethos.
+- `src/ui/public/index.html` — the single-page UI shell for the whole workflow.
 - `src/ui/public/app.js` — frontend logic driving the UI against the server's API.
 - `config.env.example` — template for required Ethos/Cognito/tenant configuration.
-- `README.md` — setup instructions and the critical warning about irreversible Ethos data creation.
+- `README.md` — setup steps and the critical warning about irreversible Ethos data creation.
 
 ---
-_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-08-13_
+_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-08-17_
