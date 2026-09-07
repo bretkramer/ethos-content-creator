@@ -1,7 +1,7 @@
 # ethos-content-creator — Living State
 
 ## What This Is
-ethos-content-creator is a local demo tool that turns a plain-text topic into a draft course — lesson cards and quiz questions sourced from Wikipedia — and optionally writes that draft into a live Ethos LMS tenant as real lessons, quizzes, and users. It's built for people running Ethos sales demos, integration walkthroughs, or tenant testing who need realistic-looking course content and simulated learner activity in minutes, without hand-authoring content or recruiting real users to generate enrollment and completion data.
+ethos-content-creator is a local demo tool that turns a plain-text topic into a draft course — lesson cards and quiz questions sourced from Wikipedia — and optionally writes that draft into a live Ethos LMS tenant as real lessons, quizzes, and users. It exists for people running Ethos sales demos, integration walkthroughs, or tenant testing who need realistic-looking course content and simulated learner activity in minutes, without hand-authoring content or recruiting real users to generate enrollment and completion data.
 
 ## How to Run & Access
 This is a local-only developer tool. Nothing in the repo defines a hosted staging or production environment.
@@ -16,7 +16,7 @@ The app runs at `http://localhost:5179`.
 
 - `npm start` runs the same `src/server.js` entry point without file-watching, for a non-dev run.
 - No Dockerfile, deploy script, or hosting config exists anywhere in the repo.
-- The one GitHub Actions workflow (`.github/workflows/notify-obsidian-hub.yml`) pings an external "Obsidian Hub" documentation system on repo activity — it does not build, test, or deploy the app.
+- The only GitHub Actions workflow (`.github/workflows/notify-obsidian-hub.yml`) pings an external "Obsidian Hub" documentation system on repo activity — it does not build, test, or deploy the app.
 - **No production or staging environment exists.** Every run operates against whatever Ethos tenant `config.env` points at. The README explicitly warns to use a disposable/demo tenant, since Ethos has no true delete, only deactivate.
 
 ## Site Map / Content Structure
@@ -28,7 +28,7 @@ A single-page workflow served by Express, with no client-side router and no sepa
   - **Review/edit** — inspect and adjust the draft before anything touches Ethos
   - **Create in Ethos** — push lessons, quizzes, and users into the tenant; optionally attach content to a course ID and enroll users against a learning plan ID
   - **Simulate** — run learners through the generated content, either as a local-only simulation or via real Ethos enrollment/progress calls
-- API endpoints are defined and handled directly inside `src/server.js` — there is no `routes/` directory or controller layer; the server calls straight into the service modules.
+- API endpoints live directly inside `src/server.js` — there is no `routes/` directory or controller layer; the server calls straight into the service modules.
 
 ## Current Architecture
 - **Runtime**: Node.js + Express 5, ES modules throughout (`"type": "module"`).
@@ -49,9 +49,9 @@ A single-page workflow served by Express, with no client-side router and no sepa
 - Answer-only quiz question cards (no separate content step) enroll and progress correctly during simulation rather than being mishandled as standard content cards.
 
 ## Recent Activity
-- No application code has changed in well over a month. Every commit in recent history is a `docs: regenerate living state` cycle — nothing under `src/` has moved.
-- This living-state document regenerates on a recurring, roughly weekly cadence against an otherwise static codebase — the documentation loop is the only visibly active process in the repository right now.
-- Shortly before this documentation cadence started, an Obsidian Hub notify workflow gets wired into CI, connecting the repo to an external notes/automation system on repo activity — a process addition rather than a runtime change.
+- Application code has not changed in well over a year. Every commit across recent history is a `docs: regenerate living state` cycle — nothing under `src/` has moved.
+- This living-state document regenerates on a recurring, roughly weekly-to-biweekly cadence against an otherwise static codebase — the documentation loop is the only visibly active process in the repository right now.
+- Before that cadence began, an Obsidian Hub notify workflow gets wired into CI as a one-off addition, connecting the repo to an external notes/automation system on repo activity — a process change, not a runtime one.
 - The last substantive application work predates all of this: the initial build of the server, all five services, and the UI, followed by one targeted fix correcting enrollment handling for answer-only quiz question cards during simulation, plus a README addition warning about Ethos's lack of true deletes.
 
 Momentum right now sits entirely in documentation/process tooling. The application itself has been functionally frozen since its initial build and one follow-up fix, with no feature work currently in flight.
@@ -94,4 +94,4 @@ Momentum right now sits entirely in documentation/process tooling. The applicati
 - `README.md` — setup steps and the critical warning about irreversible Ethos data creation.
 
 ---
-_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-09-03_
+_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-09-07_
