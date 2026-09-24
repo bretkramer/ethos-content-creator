@@ -1,7 +1,7 @@
 # ethos-content-creator — Living State
 
 ## What This Is
-ethos-content-creator is a local demo tool that turns a plain-text topic into draft course content — lesson cards and quiz questions sourced from Wikipedia — and optionally writes that draft into a live Ethos LMS tenant as real lessons, quizzes, and users. It exists for people running Ethos sales demos, integration walkthroughs, or tenant testing who need realistic-looking course content and simulated learner activity (enrollments, completions, quiz answers) without hand-authoring lessons or recruiting real users to generate that activity.
+ethos-content-creator is a local demo tool that converts a plain-text topic into draft course content — lesson cards and quiz questions sourced from Wikipedia — and optionally writes that draft into a live Ethos LMS tenant as real lessons, quizzes, and users. It's built for people running Ethos sales demos, integration walkthroughs, or tenant testing who need realistic-looking course content and simulated learner activity (enrollments, completions, quiz answers) without hand-authoring lessons or recruiting real users to generate that activity.
 
 ## How to Run & Access
 This is a local-only developer tool. Nothing in the repo defines a hosted staging or production environment.
@@ -14,21 +14,21 @@ npm run dev                        # nodemon src/server.js, live-reload
 
 The app runs at `http://localhost:5179`.
 
-- `npm start` runs the same `src/server.js` entry point without file-watching.
+- `npm start` runs the same `src/server.js` entry point without file-watching, for a non-reloading local run.
 - No Dockerfile, deploy script, or hosting config exists anywhere in the repo.
-- The only GitHub Actions workflow (`.github/workflows/notify-obsidian-hub.yml`) notifies an external documentation hub on repo activity — it does not build, test, or deploy the app.
+- The only GitHub Actions workflow (`.github/workflows/notify-obsidian-hub.yml`) pings an external documentation hub on repo activity — it doesn't build, test, or deploy the app.
 - **No production or staging environment exists.** Every run targets whatever Ethos tenant `config.env` points at. The README explicitly warns to use a disposable/demo tenant, since Ethos has no true delete, only deactivate.
 
 ## Site Map / Content Structure
 A single-page workflow served by Express, with no client-side router and no separate pages.
 
-- `/` (`src/ui/public/index.html`) — the entire app lives on one screen, moving through:
+- `/` (`src/ui/public/index.html`) — the entire app lives on one screen, walking through:
   - **Authenticate** — enter Ethos tenant/credentials and establish a session
   - **Generate** — enter a topic and produce a draft (minimum 5 lesson cards, minimum 5 quiz questions) sourced from Wikipedia
   - **Review/edit** — inspect and adjust the draft before anything touches Ethos
   - **Create in Ethos** — push lessons, quizzes, and users into the tenant; optionally attach content to a course ID and enroll users against a learning plan ID
   - **Simulate** — run learners through the generated content, either as a local-only simulation or via real Ethos enrollment/progress calls
-- API endpoints live directly inside `src/server.js`. There is no `routes/` directory or controller layer — the server calls straight into the service modules.
+- API endpoints are defined directly inside `src/server.js`. There is no `routes/` directory or controller layer — the server calls straight into the service modules.
 
 ## Current Architecture
 - **Runtime**: Node.js + Express 5, ES modules throughout (`"type": "module"`).
@@ -36,7 +36,7 @@ A single-page workflow served by Express, with no client-side router and no sepa
 - **Ethos API access**: `ethosClient.js` is a shared axios wrapper for Ethos REST calls. `ethosContentService.js` builds on it to create lessons, quizzes, and users, with optional course attachment and learning-plan enrollment.
 - **Content generation**: `contentGenerator.js` takes a topic, pulls Wikipedia source text, and shapes it into a draft with hard floors of 5 lesson cards and 5 quiz questions. Output is explicitly demo-grade — structured like a course, not curated or fact-checked.
 - **Simulation**: `ethosSimulationService.js` drives simulated learner progress through generated content, either entirely in-memory or, when a learning plan is configured, through real Ethos enrollment/progress calls. It special-cases "answer-only" quiz question cards (cards with no separate content step) because Ethos's content model doesn't map cleanly onto one uniform card shape.
-- **Validation**: `zod` is a dependency but there's no dedicated schema file in the tree — its use appears to be inline at config or request boundaries rather than centralized.
+- **Validation**: `zod` is a dependency, but there's no dedicated schema file in the tree — its use appears to be inline at config or request boundaries rather than centralized.
 - **Frontend**: static HTML/CSS/JS under `src/ui/public`, served directly by Express with no build step, bundler, or framework — proportionate to a throwaway demo tool, not built to scale as a UI.
 - **Data model**: there isn't a local one. The Node process holds only transient in-memory/session state; the sole durable system of record is whatever gets written into the Ethos tenant via its API.
 
@@ -50,8 +50,8 @@ A single-page workflow served by Express, with no client-side router and no sepa
 
 ## Recent Activity
 - Over the past several weeks, the only commits are recurring documentation-regeneration cycles. Nothing under `src/`, `config.env.example`, or `package.json` has changed in this window.
-- Immediately before that cadence began, an Obsidian Hub notify workflow gets added to CI as a one-off — a documentation/process integration, not an application change.
-- Before that, the app's actual build consists of a single initial commit plus one targeted fix to how answer-only quiz question cards are enrolled and simulated.
+- Immediately before that cadence began, an Obsidian Hub notify workflow is added to CI as a one-off — a documentation/process integration, not an application change.
+- Before that, the app's actual build consists of a single initial commit plus one targeted fix to how answer-only quiz question cards are enrolled and simulated, alongside a docs update adding the Ethos data-persistence warning.
 
 Momentum right now sits entirely in documentation regeneration. The application itself has been functionally frozen since its initial build and one early bugfix — there is no active feature or maintenance work visible in the code.
 
@@ -93,4 +93,4 @@ Momentum right now sits entirely in documentation regeneration. The application 
 - `README.md` — setup steps and the critical warning about irreversible Ethos data creation.
 
 ---
-_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-09-21_
+_Auto-generated by [obsidian-hub](https://github.com/bretkramer/ethos-obsidian-hub) · 2026-09-24_
